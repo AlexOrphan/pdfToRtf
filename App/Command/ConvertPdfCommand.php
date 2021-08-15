@@ -2,7 +2,11 @@
 
 namespace App\Command;
 
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\Writer\WriterInterface;
+use Smalot\PdfParser\Parser;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Filesystem\Exception\FileNotFoundException;
@@ -11,6 +15,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Finder\Finder;
 use function Symfony\Component\String\u;
 use Symfony\Component\Finder\SplFileInfo;
+use PhpOffice\PhpWord\PhpWord;
 //use Symfony\Component\Filesystem\Exception\IOExceptionInterface;
 //use Symfony\Component\Console\Input\InputDefinition;
 //use Symfony\Component\Console\Input\InputOption;
@@ -39,6 +44,18 @@ class ConvertPdfCommand extends Command
      * @var Finder
      */
     protected $finder;
+    /**
+     * @var Parser
+     */
+    protected $parser;
+    /**
+     * @var PhpWord
+     */
+    protected $word;
+    /**
+     * @var WriterInterface
+     */
+    protected $writer;
 
     protected function configure(): void
     {
@@ -52,16 +69,19 @@ class ConvertPdfCommand extends Command
     {
         $this->filesystem = new Filesystem();
         $this->finder = new Finder();
+        $this->parser = new Parser();
+        $this->word = new PhpWord();
+        $this->writer = IOFactory::createWriter($this->word);
     }
 
     protected function interact(InputInterface $input, OutputInterface $output)
     {
-        $this->inputPath = $input->getArgument('input_path');
+        $this->inputPath = realpath($input->getArgument('input_path'));
         if (!$this->filesystem->exists($this->inputPath)) {
             throw new FileNotFoundException(null, 0, null, $this->inputPath);
         }
 
-        $this->outputPath = $input->getArgument('output_path');
+        $this->outputPath = realpath($input->getArgument('output_path'));
         if (!$this->filesystem->exists($this->outputPath)) {
             throw new FileNotFoundException(null, 0, null, $this->outputPath);
         }
@@ -70,7 +90,7 @@ class ConvertPdfCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $this->processDirectories($this->inputPath, $this->outputPath, $output);
+        $this->processFiles($output);
         return Command::SUCCESS;
 
         // or return this if some error happened during the execution
@@ -82,29 +102,50 @@ class ConvertPdfCommand extends Command
         // return Command::INVALID
     }
 
-    protected function processDirectories(string $inputPath, string $outputPath, OutputInterface $output)
-    {
-        $this->processFiles($inputPath, $outputPath, $output);
-    }
-
     protected function getOutputName(string $inputPath): string
     {
-        return u($inputPath)->replace($this->inputPath, $this->outputPath);
+        return u($inputPath)->replace($this->inputPath, $this->outputPath) . '.docx';
     }
 
-    protected function processFiles(string $inputPath, string $outputPath, OutputInterface $output)
+    protected function processFiles(OutputInterface $output)
     {
-        $this->finder->files()->in($inputPath);
+        $this->finder->files()->in($this->inputPath)->name('*.pdf');
         if ($this->finder->hasResults()) {
+            $progress = new ProgressBar($output, iterator_count($this->finder));
+            $progress->start();
             foreach ($this->finder as $file) {
-                $this->processFile($file, $outputPath, $output);
+                try {
+                    $this->processFile($file, $output);
+                } catch (\Exception $ex) {
+                    $output->writeln("{$file->getRealPath()} ({$ex->getMessage()})");
+                }
+                $progress->advance();
             }
+            $progress->finish();
         }
     }
 
-    protected function processFile(SplFileInfo $file, $outputPath, OutputInterface $output)
+    protected function processFile(SplFileInfo $file, OutputInterface $output)
     {
-        //$output->writeln($file->getRealPath());
-        $output->writeln($file->getRelativePathname());
+        $outputPath = $this->getOutputName($file->getRealPath(),$this->outputPath);
+
+        //$this->parser = new Parser();
+        $pdf = $this->parser->parseFile($file->getRealPath());
+        $text = $pdf->getText();
+        $filters = [
+            '@https:\/\/.*?\d\s\/\s\d@im',
+            '@Автор.*?Алексеевич@im',
+            '@Источник.*?\d\/@im',
+        ];
+        $text = preg_replace($filters, "", $text);
+
+        $fontStyleName = 'def';
+        $this->word->addFontStyle(
+            $fontStyleName,
+            array('name' => 'Times New Roman', 'size' => 12, 'color' => '000000', 'bold' => false)
+        );
+        $section = $this->word->addSection();
+        $section->addText($text, $fontStyleName);
+        $this->writer->save($outputPath);
     }
 }

@@ -4,6 +4,7 @@
         "symfony/console": "^5.3",
         "symfony/filesystem": "^5.3",
         "symfony/finder": "^5.3",
-        "symfony/string": "^5.3"
+        "symfony/string": "^5.3",
+        "phpoffice/phpword": "^0.18.2"
     }
 }
