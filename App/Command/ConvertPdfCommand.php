@@ -1,0 +1,37 @@
+<?php
+// src/Command/CreateUserCommand.php
+namespace App\Command;
+
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+
+class CreateUserCommand extends Command
+{
+    // the name of the command (the part after "bin/console")
+    protected static $defaultName = 'convert:pdf';
+
+    protected function configure(): void
+    {
+        $this
+            ->addArgument('input_path', InputArgument::REQUIRED, 'Input directory')
+            ->addArgument('output_path', InputArgument::REQUIRED, 'Output directory');
+    }
+
+    p
+
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $inputPath = $input->getArgument('input_path');
+        $outputPath = $input->getArgument('output_path');
+        return Command::SUCCESS;
+
+        // or return this if some error happened during the execution
+        // (it's equivalent to returning int(1))
+        // return Command::FAILURE;
+
+        // or return this to indicate incorrect command usage; e.g. invalid options
+        // or missing arguments (it's equivalent to returning int(2))
+        // return Command::INVALID
+    }
+}
