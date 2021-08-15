@@ -120,6 +120,7 @@ class ConvertPdfCommand extends Command
                     $output->writeln("{$file->getRealPath()} ({$ex->getMessage()})");
                 }
                 $progress->advance();
+                break;
             }
             $progress->finish();
         }
@@ -129,7 +130,7 @@ class ConvertPdfCommand extends Command
     {
         $outputPath = $this->getOutputName($file->getRealPath(),$this->outputPath);
 
-        //$this->parser = new Parser();
+        $this->parser = new Parser();
         $pdf = $this->parser->parseFile($file->getRealPath());
         $text = $pdf->getText();
         $filters = [
@@ -139,10 +140,28 @@ class ConvertPdfCommand extends Command
         ];
         $text = preg_replace($filters, "", $text);
 
+        $this->word = new PhpWord();
+        $this->writer = IOFactory::createWriter($this->word);
+
         $fontStyleName = 'def';
         $this->word->addFontStyle(
             $fontStyleName,
             array('name' => 'Times New Roman', 'size' => 12, 'color' => '000000', 'bold' => false)
+        );
+
+//        $paragraphStyleName = 'def';
+//        $this->word->addParagraphStyle(
+//            $paragraphStyleName,
+//            array('indentation' => 3, 'indent' => 2)
+//        );
+        $this->word->setDefaultParagraphStyle(
+            array(
+                'align'      => 'both',
+                'spaceAfter' => \PhpOffice\PhpWord\Shared\Converter::pointToTwip(12),
+                'spacing'    => 120,
+                'indent' => 2,
+                'hanging' => 1,
+            )
         );
         $section = $this->word->addSection();
         $section->addText($text, $fontStyleName);
