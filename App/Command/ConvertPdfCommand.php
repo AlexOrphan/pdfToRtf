@@ -102,9 +102,9 @@ class ConvertPdfCommand extends Command
         // return Command::INVALID
     }
 
-    protected function getOutputName(string $inputPath): string
+    protected function getOutputName(string $inputPath, $extension = null): string
     {
-        return u($inputPath)->replace($this->inputPath, $this->outputPath) . '.docx';
+        return u($inputPath)->replace($this->inputPath, $this->outputPath)->toString() . ($extension ? : '');
     }
 
     protected function processFiles(OutputInterface $output)
@@ -120,7 +120,6 @@ class ConvertPdfCommand extends Command
                     $output->writeln("{$file->getRealPath()} ({$ex->getMessage()})");
                 }
                 $progress->advance();
-                break;
             }
             $progress->finish();
         }
@@ -128,7 +127,7 @@ class ConvertPdfCommand extends Command
 
     protected function processFile(SplFileInfo $file, OutputInterface $output)
     {
-        $outputPath = $this->getOutputName($file->getRealPath(),$this->outputPath);
+        $outputPath = $this->getOutputName($file->getPath() . '/' . $file->getFilenameWithoutExtension(), '.docx');
 
         $this->parser = new Parser();
         $pdf = $this->parser->parseFile($file->getRealPath());
@@ -149,22 +148,20 @@ class ConvertPdfCommand extends Command
             array('name' => 'Times New Roman', 'size' => 12, 'color' => '000000', 'bold' => false)
         );
 
-//        $paragraphStyleName = 'def';
-//        $this->word->addParagraphStyle(
-//            $paragraphStyleName,
-//            array('indentation' => 3, 'indent' => 2)
-//        );
         $this->word->setDefaultParagraphStyle(
             array(
-                'align'      => 'both',
-                'spaceAfter' => \PhpOffice\PhpWord\Shared\Converter::pointToTwip(12),
-                'spacing'    => 120,
-                'indent' => 2,
-                'hanging' => 1,
+//                'align'      => 'both',
+//                'spaceAfter' => \PhpOffice\PhpWord\Shared\Converter::pointToTwip(12),
+//                'spacing'    => 120,
+//                'indent' => 0,
+                'hanging' => -1,
             )
         );
         $section = $this->word->addSection();
         $section->addText($text, $fontStyleName);
+        if (!$this->filesystem->exists($this->getOutputName($file->getPath()))) {
+            $this->filesystem->mkdir($this->getOutputName($file->getPath()));
+        }
         $this->writer->save($outputPath);
     }
 }
